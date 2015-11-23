@@ -35,7 +35,7 @@ static float median(int *data, int n)
     int *sorted;
     float result;
 
-    sorted = malloc(n * sizeof(int));
+    sorted = (int *)malloc(n * sizeof(int));
     memcpy(sorted, data, n * sizeof(int));
     qsort(sorted, n, sizeof(int), cmpint);
 
@@ -55,7 +55,7 @@ static float medianf(float *data, int n)
     float *sorted;
     float result;
 
-    sorted = malloc(n * sizeof(float));
+    sorted = (float *)malloc(n * sizeof(float));
     memcpy(sorted, data, n * sizeof(float));
     qsort(sorted, n, sizeof(float), cmpfloat);
 
@@ -124,9 +124,9 @@ char* blockhash_to_str(int *bits, int nbits)
 
     len = nbits / 4;
 
-    hex = malloc(len + 1);
+    hex = (char *)malloc(len + 1);
     if(!hex) return NULL;
-    stmp = malloc(2);
+    stmp = (char *)malloc(2);
     if(!stmp) {
       free(hex);
       return NULL;
@@ -160,7 +160,7 @@ int blockhash_quick(int bits, unsigned char *data, int width, int height, int **
     block_width = width / bits;
     block_height = height / bits;
 
-    blocks = calloc(bits * bits, sizeof(int));
+    blocks = (int *)calloc(bits * bits, sizeof(int));
     if(!blocks) return -1;
     
     for (y = 0; y < bits; y++) {
@@ -211,10 +211,10 @@ int blockhash(int bits, unsigned char *data, int width, int height, int **hash)
     block_width = (float) width / (float) bits;
     block_height = (float) height / (float) bits;
 
-    blocks = calloc(bits * bits, sizeof(float));
+    blocks = (float *)calloc(bits * bits, sizeof(float));
     if(!blocks) return -1;
     
-    result = malloc(bits * bits * sizeof(int));
+    result = (int *)malloc(bits * bits * sizeof(int));
     if(!result) {
 	free(blocks);
 	return -1;

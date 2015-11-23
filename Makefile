@@ -15,10 +15,10 @@ else
 CFLAGS:=-O3
 endif
 
-CFLAGS+=-Wall -Werror -fno-common -fmax-errors=2 -DHAVE_MACHINE_ENDIAN_H
+CFLAGS+=-fno-common -fmax-errors=2 -DHAVE_MACHINE_ENDIAN_H
 
-CFLAGS+=$(shell MagickWand-config --cflags)
-LDFLAGS:=-L. $(shell MagickWand-config --ldflags)
+CFLAGS+=$(shell MagickWand-config --cflags) $(shell pkg-config pHash --cflags)
+LDFLAGS:=-L. -L/usr/lib $(shell MagickWand-config --ldflags)
 
 LIBS:= 	-lblockhash \
 	$(shell MagickWand-config --libs) \
@@ -26,7 +26,7 @@ LIBS:= 	-lblockhash \
 	-lavcodec \
 	-lavutil \
 	-lswscale \
-	-lm \
+	$(shell pkg-config pHash --libs)
 
 ARFLAGS:=
 

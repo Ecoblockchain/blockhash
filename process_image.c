@@ -93,7 +93,7 @@ int compute_image_hash(MagickWand* magick_wand, int bits, int quick, int** hash)
     // Handle special zero size case
     if(data_size == 0) {      
         size_t hash_size = bits * bits * sizeof(int); 
-        int* h = malloc(hash_size);
+        int* h = (int *)malloc(hash_size);
         if(!h) return 1;
         memset(h, 0, hash_size);
         *hash = h;
@@ -101,7 +101,7 @@ int compute_image_hash(MagickWand* magick_wand, int bits, int quick, int** hash)
     }
     
     // Export pixel data
-    image_data = malloc(data_size);
+    image_data = (unsigned char*)malloc(data_size);
     if(!image_data) return 2;
     
     status = MagickExportImagePixels(magick_wand, 0, 0, width, height, "RGBA", CharPixel, image_data);

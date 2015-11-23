@@ -16,6 +16,9 @@
 #include "blockhash.h"
 #include "bmp_image.h"
 #include "processing.h"
+#include "pHash.h"
+
+using namespace std;
 
 #ifdef __BIG_ENDIAN__
 # define BIG_ENDIAN
@@ -84,8 +87,6 @@ static MagickWand* load_image_from_frame(const char* src_file_name, size_t frame
 
 int* process_video_frame(const hash_computation_task* task, size_t frame_number, void* frame_data, size_t frame_data_size)
 {
-    int result = 0;
-    int *hash;
     MagickWand *magick_wand;
     
     // Load Image
@@ -93,42 +94,44 @@ int* process_video_frame(const hash_computation_task* task, size_t frame_number,
     if(!magick_wand) return NULL;
     
     // Compute Image Hash
-    result = compute_image_hash(magick_wand, task->bits, task->quick, &hash);
-    
-    switch(result)
-    {
-        case 0: {
-            // Show debug output
-            if (task->debug) {
-                printf("Dump of the frame#%llu hash:\n", (unsigned long long)frame_number);
-                debug_print_hash(hash, task->bits);
-            }
-            break;
-        }
-        
-        case 1: {
-            fprintf(stderr, "Error computing blockhash for the zero-sized frame #%llu of the video file '%s'.", 
-                    (unsigned long long)frame_number, task->src_file_name);
-            break;
-        }
-        
-        case 2: {
-            fprintf(stderr, "Error converting image data to RGBA for the frame #%llu of the video file '%s'.\n", 
-                    (unsigned long long)frame_number, task->src_file_name);
-            break;
-        }
-        default: {
-            fprintf(stderr, "Error computing blockhash for the frame #%llu of the video file '%s'.", 
-                    (unsigned long long)frame_number, task->src_file_name);
-            break;
-        }
+    MagickProfileImage(magick_wand, "*", NULL, 0);
+
+    char *filename;
+    char tmpname[L_tmpnam];
+
+    /* This is completely unsafe and horrible, but pHash demands a
+       filename(!) */
+    filename = tmpnam(tmpname);
+
+    if (!MagickWriteImages(magick_wand, filename, MagickTrue)) {
+        fprintf(stderr, "Couldn't write temporary file\n");
+        return NULL;
     }
+
+    ulong64 tmphash;
+    if (ph_dct_imagehash(filename, tmphash) < 0) {
+        fprintf(stderr, "pHash signaled error\n");
+        return NULL;
+    }
+
+    unlink(filename);
+
+    size_t hash_size = 8 * 8 * sizeof(int);
+    int* h = (int *)malloc(hash_size);
+    if(!h) return NULL;
+    memset(h, 0, hash_size);
+    int k;
+
+    for (k = 0; k < 64; k++) {
+       h[k] = tmphash & (2^k);
+    }
+
     
     // Cleanup temporary data
     DestroyMagickWand(magick_wand);
     
     // Report the result
-    return hash;
+    return h;
 }
 
 
@@ -192,7 +195,7 @@ restart:
     if(avformat_find_stream_info(state.fmt_ctx, NULL)<0) {
         result = -1;
         fprintf(stderr, "Error getting data streams information for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_close_video_file;
+        return -1;
     }
     
     // Dump information for debug purposes
@@ -213,7 +216,7 @@ restart:
     if( state.video_stream_idx == -1) {
         result = -1;
         fprintf(stderr, "Error: Couldn't find video data stream in the video file '%s'.\n", task->src_file_name);
-        goto cleanup_close_video_file;
+        return -1;
     }
     
     // Get a pointer to the codec context for the video stream
@@ -224,7 +227,7 @@ restart:
     if(state.video_codec == NULL) {
         result = -1;
         fprintf(stderr, "Error: Unsupported codec in the video file '%s'.\n", task->src_file_name);
-        goto cleanup_close_video_file;
+        return -1;
     }
     
     // Allocate new context
@@ -232,21 +235,21 @@ restart:
     if(!state.video_codec_ctx) {
         result = -1;
         fprintf(stderr, "Error: Couldn't allocate new video codec context for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_close_video_file;
+        return -1;
     }
     
     // Copy context
     if(avcodec_copy_context(state.video_codec_ctx, state.original_video_codec_ctx) != 0) {
         result = -1;
         fprintf(stderr, "Error: Couldn't copy video codec context for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_free_video_codec_context;
+        return -1;
     }
     
     // Open codec
     if(avcodec_open2(state.video_codec_ctx, state.video_codec, NULL) < 0) {
         result = -1;
         fprintf(stderr, "Error: Couldn't open video codec for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_free_video_codec_context;
+        return -1;
     }
     
     // Allocate storage for the original frame
@@ -254,7 +257,7 @@ restart:
     if(!state.frame) {
         result = -1;
         fprintf(stderr, "Error: Couldn't allocate input frame for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_free_video_codec_context;        
+        return -1;
     }
 
     // Get frame count
@@ -289,7 +292,7 @@ restart:
             // [H264] illegal short term buffer state detected
             frames_counted = 1;
             restart_flag = 1;
-            goto cleanup_free_frame;
+            return -1;
         }
     }
     
@@ -306,12 +309,12 @@ restart:
         } else {
             // Handle special zero frames case
             size_t hash_size = task->bits * task->bits * sizeof(int); 
-            hash = malloc(hash_size);
+            hash = (int *)malloc(hash_size);
             if(!hash) {
                 result = -1;
                 fprintf(stderr, "Error computing blockhash for the zero-frame video file '%s'.\n", 
                         task->src_file_name);
-                goto cleanup;
+                return -1;
             }
             memset(hash, 0, hash_size);
             goto hash_computed;
@@ -329,7 +332,7 @@ restart:
                    state.video_codec_ctx->height, BMP_PIXEL_FORMAT, 1) < 0) {
         result = -1;
         fprintf(stderr, "Error: Couldn't allocate picture buffer for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_free_frame;        
+        return -1;
     }
     
     // initialize SWS context for software scaling
@@ -348,7 +351,7 @@ restart:
     if(!state.sws_ctx) {
         result = -1;
         fprintf(stderr, "Error: Couldn't create image transformation context for the video file '%s'.\n", task->src_file_name);
-        goto cleanup_free_picture_buffer;                                            
+        return -1;
     }
 
     next_hash_frame = 0;
@@ -390,7 +393,7 @@ restart:
                                 result = -1;
                                 fprintf(stderr, "Error: Couldn't allocate frame image buffer for the video file '%s'.\n", task->src_file_name);
                                 av_free_packet(&state.packet);
-                                goto cleanup;                                                                
+                                return -1;
                             }
 
                             SET_LE_2(bmp->bfh.bfType, 0x4D42); // 'B' 'M'
@@ -428,7 +431,7 @@ restart:
 
                             if(task->debug) {
                                 size_t file_name_buffer_size = strlen(task->src_file_name) + 128;
-                                char* file_name_buffer = malloc(file_name_buffer_size);
+                                char* file_name_buffer = (char *)malloc(file_name_buffer_size);
                                 strcpy(file_name_buffer, task->src_file_name);
                                 char buffer[48];
                                 snprintf(buffer, 48, "-frm-%"PRIu64".bmp", current_frame);
@@ -448,11 +451,11 @@ restart:
                         }
                         
                         {
-                            int* hash = process_video_frame(task, current_frame, bmp, bmp_size);
+                            int* hash = (int *)process_video_frame(task, current_frame, bmp, bmp_size);
                             if(!hash) {
                                 free(bmp);
                                 av_free_packet(&state.packet);
-                                goto cleanup;
+                                return -1;
                             }
                             hash_frames[i].hash = hash;
                         }
@@ -478,10 +481,9 @@ restart:
     
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         
-    hash = malloc(task->bits * task->bits * sizeof(int) * HASH_PART_COUNT);
+    hash = (int *)malloc(task->bits * task->bits * sizeof(int) * HASH_PART_COUNT);
     if(!hash) {
         fprintf(stderr, "Error creating hash for video file '%s'.\n", task->src_file_name);
-        goto cleanup;
     } else {
         size_t block_element_count = task->bits * task->bits;
         size_t block_size = block_element_count * sizeof(int);
@@ -511,7 +513,6 @@ hash_computed:
     // Free hash buffer
     free(hash);
     
-cleanup:
     // Free partial hash buffers
     for(i = 0; i < HASH_PART_COUNT; ++i) {
         int* h = hash_frames[i].hash; 
@@ -523,21 +524,17 @@ cleanup:
     if(state.sws_ctx)
         sws_freeContext(state.sws_ctx);
     
-cleanup_free_picture_buffer:
     // Free picture buffer
     if(state.picture.data[0])
         av_freep(&state.picture.data[0]);
     
-cleanup_free_frame:
     // Free original frame structure
     avcodec_free_frame(&state.frame);
     
-cleanup_free_video_codec_context:
     // Free video codec context
     avcodec_close(state.video_codec_ctx);
     free(state.video_codec_ctx);
 
-cleanup_close_video_file:
     // Close video file
     avformat_close_input(&state.fmt_ctx);
     
