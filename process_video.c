@@ -123,7 +123,7 @@ int* process_video_frame(const hash_computation_task* task, size_t frame_number,
     int k;
 
     for (k = 0; k < 64; k++) {
-       h[k] = tmphash & (2^k);
+       h[k] = (tmphash & (1<<k));
     }
 
     
