@@ -13,24 +13,10 @@ def configure(conf):
 
     conf.check_cc(lib='m')
     conf.check_cfg(package='MagickWand', args=['--cflags', '--libs'])
-    conf.check_cfg(package='opencv', args=['--cflags', '--libs'])
 
 def build(bld):
-    bld.stlib(source='blockhash.c', target='stblockhash')
-    if bld.options.debug:
-       cflags=['-g3', '-ggdb']
-    else:
-       cflags=['-O3']
-
-    bld.program(source='imagehash.c',
+    bld.program(source='blockhash.c',
                 features='c cprogram',
                 target='blockhash',
-                use=['MAGICKWAND', 'M', 'stblockhash'],
-                cflags=cflags,
-               )
-    bld.program(source='videohash.c',
-                features='c cprogram',
-                target='blockhash_video',
-                use=['MAGICKWAND', 'M', 'stblockhash', 'OPENCV'],
-                cflags=cflags,
+                use=['MAGICKWAND', 'M']
                )
