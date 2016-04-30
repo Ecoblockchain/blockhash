@@ -17,11 +17,11 @@ endif
 
 CFLAGS+=-fno-common -fmax-errors=2 -DHAVE_MACHINE_ENDIAN_H
 
-CFLAGS+=$(shell MagickWand-config --cflags) $(shell pkg-config pHash --cflags)
-LDFLAGS:=-L. -L/usr/lib $(shell MagickWand-config --ldflags)
+CFLAGS+=$(shell pkg-config MagickWand --cflags) $(shell pkg-config pHash --cflags)
+LDFLAGS:=-L. -L/usr/lib $(shell pkg-config MagickWand --ldflags)
 
 LIBS:= 	-lblockhash \
-	$(shell MagickWand-config --libs) \
+	$(shell pkg-config MagickWand --libs) \
 	-lavformat \
 	-lavcodec \
 	-lavutil \
