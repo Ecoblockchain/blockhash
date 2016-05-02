@@ -10,9 +10,12 @@
 #include <stdint.h>
 #include <malloc.h>
 #include <wand/MagickWand.h>
+extern "C"
+{
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
+}
 #include "blockhash.h"
 #include "bmp_image.h"
 #include "processing.h"

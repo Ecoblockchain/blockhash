@@ -10,7 +10,9 @@
 #include <getopt.h>
 #include <string.h>
 #include <wand/MagickWand.h>
+extern "C" {
 #include <libavformat/avformat.h>
+}
 #include "processing.h"
 #include "version.h"
 

@@ -6,8 +6,8 @@
 # Distributed under an MIT license, please see LICENSE in the top dir.
 #
 
-CC=gcc
-LD=gcc
+CC=g++
+LD=g++
 
 ifeq ("$(DEBUG)","1")
 CFLAGS:=-g3 -ggdb
@@ -18,14 +18,19 @@ endif
 CFLAGS+=-fno-common -fmax-errors=2 -DHAVE_MACHINE_ENDIAN_H
 
 CFLAGS+=$(shell pkg-config MagickWand --cflags) $(shell pkg-config pHash --cflags)
-LDFLAGS:=-L. -L/usr/lib $(shell pkg-config MagickWand --ldflags)
+CFLAGS+=$(shell pkg-config libavformat-ffmpeg --cflags)
+CFLAGS+=$(shell pkg-config libavcodec-ffmpeg --cflags)
+CFLAGS+=$(shell pkg-config libavutil-ffmpeg --cflags)
+CFLAGS+=$(shell pkg-config libswscale-ffmpeg --cflags)
+
+LDFLAGS:=-L. -L/usr/lib
 
 LIBS:= 	-lblockhash \
 	$(shell pkg-config MagickWand --libs) \
-	-lavformat \
-	-lavcodec \
-	-lavutil \
-	-lswscale \
+	$(shell pkg-config libavformat-ffmpeg --libs) \
+	$(shell pkg-config libavcodec-ffmpeg --libs) \
+	$(shell pkg-config libavutil-ffmpeg --libs) \
+	$(shell pkg-config libswscale-ffmpeg --libs) \
 	$(shell pkg-config pHash --libs)
 
 ARFLAGS:=

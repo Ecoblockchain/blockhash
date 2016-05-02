@@ -9,10 +9,6 @@
 #ifndef __LIBBLOCKHASH_BLOCKHASH_H__
 #define __LIBBLOCKHASH_BLOCKHASH_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-  
 /** Convert array of bits to hexadecimal string representation.
  * Hash length should be a multiple of 4.
  *
@@ -58,8 +54,5 @@ int blockhash_quick(int bits, unsigned char *data, int width, int height, int **
 int blockhash(int bits, unsigned char *data, int width, int height, int **hash);
 
   
-#ifdef __cplusplus
-} 
-#endif
 
 #endif
